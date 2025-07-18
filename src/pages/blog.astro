@@ -1,0 +1,138 @@
+---
+import Layout from '../components/Layout.astro';
+import Button from '../components/Button.tsx';
+import { getCollection } from 'astro:content';
+
+// Get all blog posts from content collection
+const blogEntries = await getCollection('blog');
+
+// Sort by date and format for display
+const posts = blogEntries
+  .map(entry => ({
+    id: entry.id.replace('.md', ''),
+    title: entry.data.title,
+    excerpt: entry.data.excerpt,
+    author: entry.data.author,
+    date: entry.data.date instanceof Date ? entry.data.date.toLocaleDateString() : entry.data.date,
+    category: entry.data.category,
+    tags: Array.isArray(entry.data.tags) ? entry.data.tags : (entry.data.tags ? entry.data.tags.split(', ') : []),
+    readTime: `${entry.data.readTime} min read`,
+    featured: entry.data.featured || false,
+    gradient: entry.data.gradient,
+    color: entry.data.color || 'gray', // Default color if not specified
+  }))
+  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+const featuredPost = posts.find(post => post.featured);
+const latestPosts = posts;
+---
+
+<Layout title="Blog - William Plays0402" description="Read the latest articles and thoughts from William Plays0402 on web development, tech trends, and more.">
+  <!-- Hero Section -->
+  <section class="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+          Blog
+        </h1>
+        <p class="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+          Thoughts, tutorials, and insights about web development, technology trends, and the journey of being a developer.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featured Post -->
+  {featuredPost && (
+    <section class="py-20 bg-white dark:bg-gray-900">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="mb-12">
+          <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">Featured Article</h2>
+        </div>
+        
+        <article class="bg-gray-50 dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+          <div class="grid lg:grid-cols-2 gap-0">
+            <div class={`h-64 lg:h-auto bg-gradient-to-br ${featuredPost.gradient}`}></div>
+            <div class="p-8 lg:p-12 flex flex-col justify-center">
+              <div class="flex items-center space-x-2 mb-4">
+                <span class={`px-3 py-1 rounded-full text-sm font-medium bg-${featuredPost.color}-100 dark:bg-${featuredPost.color}-900 text-${featuredPost.color}-800 dark:text-${featuredPost.color}-200`}>
+                  {featuredPost.category}
+                </span>
+                <span class="text-gray-500 dark:text-gray-400 text-sm">{featuredPost.date}</span>
+              </div>
+              <h3 class="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                {featuredPost.title}
+              </h3>
+              <p class="text-gray-600 dark:text-gray-300 mb-6 text-lg">
+                {featuredPost.excerpt}
+              </p>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    {featuredPost.author === "William Plays0402" ? (
+                    <img
+                      src="/pfp-128.jpg"
+                      alt="William Plays0402 avatar"
+                      class="w-10 h-10 rounded-full object-cover"
+                      loading="eager"
+                    />
+                    ) : (
+                    <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span class="text-white font-semibold">
+                      {featuredPost.author?.[0] ?? "?"}
+                      </span>
+                    </div>
+                    )}
+                  <span class="text-gray-700 dark:text-gray-300 font-medium">{featuredPost.author}</span>
+                </div>
+                <Button href={`/blog/${featuredPost.id}`} variant="outline">Read More</Button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  )}
+
+  <!-- Blog Posts Grid -->
+  <section class="py-20 bg-gray-50 dark:bg-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="mb-12">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">Latest Articles</h2>
+      </div>
+      
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {latestPosts.map((post) => (
+          <article class="bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+            <div class={`h-48 bg-gradient-to-br ${post.gradient}`}></div>
+            <div class="p-6">
+              <div class="flex items-center space-x-2 mb-3">
+                <span class={`px-2 py-1 rounded text-xs font-medium bg-${post.color}-100 dark:bg-${post.color}-900 text-${post.color}-800 dark:text-${post.color}-200`}>
+                  {post.category}
+                </span>
+                <span class="text-gray-500 dark:text-gray-400 text-sm">{post.date}</span>
+              </div>
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                {post.title}
+              </h3>
+              <p class="text-gray-600 dark:text-gray-300 mb-4">
+                {post.excerpt}
+              </p>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500 dark:text-gray-400">{post.readTime}</span>
+                <Button href={`/blog/${post.id}`} variant="outline" size="sm">Read</Button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div class="mt-16 text-center">
+        <p class="text-lg text-gray-600 dark:text-gray-300 mb-4">
+          That's all for now! Check back soon for more articles.
+        </p>
+        <Button href="/" variant="primary">
+          Back to Home
+        </Button>
+      </div>
+    </div>
+  </section>
+</Layout>

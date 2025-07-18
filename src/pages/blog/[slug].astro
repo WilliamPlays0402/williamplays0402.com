@@ -1,0 +1,272 @@
+---
+import Layout from '../../components/Layout.astro';
+import Button from '../../components/Button.tsx';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const blogEntries = await getCollection('blog');
+  return blogEntries.map(entry => ({
+    params: { slug: entry.id.replace('.md', '') },
+    props: { entry }
+  }));
+}
+
+const { entry } = Astro.props;
+
+if (!entry) {
+  return Astro.redirect('/blog');
+}
+
+// Convert entry to our format
+const post = {
+  id: entry.id.replace('.md', ''),
+  title: entry.data.title,
+  excerpt: entry.data.excerpt,
+  content: entry.body,
+  author: entry.data.author,
+  date: entry.data.date instanceof Date ? entry.data.date.toLocaleDateString() : entry.data.date,
+  category: entry.data.category,
+  tags: Array.isArray(entry.data.tags) ? entry.data.tags : (entry.data.tags ? entry.data.tags.split(', ') : []),
+  readTime: `${entry.data.readTime} min read`,
+  featured: entry.data.featured || false,
+  gradient: entry.data.gradient,
+  color: entry.data.color || 'gray', // Default color if not specified
+  image: entry.data.image || null, // Optional image for the post
+};
+
+// Get related posts (3 random posts excluding current)
+const allEntries = await getCollection('blog');
+const relatedPosts = allEntries
+  .filter(e => e.id.replace('.md', '') !== post.id)
+  .slice(0, 3)
+  .map(e => ({
+    id: e.id.replace('.md', ''),
+    title: e.data.title,
+    excerpt: e.data.excerpt,
+    author: e.data.author,
+    date: e.data.date instanceof Date ? e.data.date.toLocaleDateString() : e.data.date,
+    category: e.data.category,
+    readTime: `${e.data.readTime} min read`,
+    gradient: e.data.gradient,
+    color: e.data.color || 'gray', // Default color if not specified
+    tags: Array.isArray(e.data.tags) ? e.data.tags : (e.data.tags ? e.data.tags.split(', ') : [])
+  }));
+
+post.content = post.content || ''; // Ensure content is defined
+// replace all < and > with HTML entities to prevent XSS, and to ensure proper rendering
+post.content = post.content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+---
+
+<Layout title={`${post.title} - William Plays0402`} description={post.excerpt}>
+  <!-- Blog Header -->
+  <article class="bg-white dark:bg-gray-900">
+    <!-- Hero Section -->
+    <header class="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-20">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <div class="flex items-center justify-center space-x-4 mb-6">
+            <span class={`px-3 py-1 rounded-full text-sm font-medium bg-${post.color}-100 dark:bg-${post.color}-900 text-${post.color}-800 dark:text-${post.color}-200`}>
+              {post.category}
+            </span>
+            <span class="text-gray-600 dark:text-gray-400">{post.date}</span>
+          </div>
+          
+          <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+            {post.title}
+          </h1>
+          
+          <p class="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+            {post.excerpt}
+          </p>
+          
+          <div class="flex items-center justify-center space-x-6">
+            <div class="flex items-center space-x-3">
+                {post.author === 'William Plays0402' ? (
+                <img
+                  src="/pfp-128.jpg"
+                  alt="William Plays0402"
+                  class="w-12 h-12 rounded-full object-cover"
+                  width="48"
+                  height="48"
+                  loading="eager"
+                />
+                ) : (
+                <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span class="text-white font-semibold text-lg">
+                  {post.author?.[0] ?? '?'}
+                  </span>
+                </div>
+                )}
+              <div class="text-left">
+                <p class="font-semibold text-gray-900 dark:text-gray-100">{post.author}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{post.readTime}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Blog Content -->
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div class="text-gray-900 dark:text-gray-200 max-w-none">
+        <div set:html={(post.content || '').split('\n').reduce((acc, line, index, lines) => {
+          // Convert markdown-like content to HTML with proper Tailwind classes
+          let result = '';
+
+          const isInsideCodeBlock = acc.includes('<pre class="bg-gray-900') && (acc.lastIndexOf('<pre class="bg-gray-900') > acc.lastIndexOf('</code></pre>'));
+          
+          if (line.startsWith('# ')) {
+            result = `<h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mt-8 mb-6 border-b-2 border-blue-500 pb-3">${line.slice(2)}</h1>`;
+          } else if (line.startsWith('## ')) {
+            result = `<h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-8 mb-4">${line.slice(3)}</h2>`;
+          } else if (line.startsWith('### ')) {
+            result = `<h3 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mt-6 mb-3">${line.slice(4)}</h3>`;
+          } else if (line.startsWith('```')) {
+            // Handle code blocks properly
+            const lang = line.slice(3).trim();
+            const isCodeBlockStart = !acc.includes('<pre class="bg-gray-900') || acc.lastIndexOf('<pre class="bg-gray-900') < acc.lastIndexOf('</code></pre>');
+            
+            if (isCodeBlockStart) {
+              result = `<pre class="bg-gray-900 text-gray-100 p-6 rounded-lg overflow-x-auto mb-6 border border-gray-700"><code class="text-base">`;
+            } else {
+              result = '</code></pre>';
+            }
+          } else if (line.startsWith('> ')) {
+            if (!isInsideCodeBlock) {
+              // Handle blockquotes
+              result = `<blockquote class="border-l-4 border-blue-500 pl-6 py-4 my-6 bg-blue-50 dark:bg-blue-900/20 italic text-gray-700 dark:text-gray-300"><p class="mb-0">${line.slice(2)}</p></blockquote>`;
+            } else {
+              // If inside code block, treat as normal text
+              result = `${line}\n`;
+            }
+          } else if (line.trim() === '') {
+            if (!isInsideCodeBlock) {
+              // Handle empty lines outside code blocks
+              result = '<br class="my-2">';
+            } else {
+              // If inside code block, just add a newline
+              result = '\n';
+            }
+          } else if (line.startsWith('- ')) {
+            if (!isInsideCodeBlock) {
+              // Handle unordered lists
+              result = `<li class="text-lg leading-relaxed mb-2 list-disc list-inside">${line.slice(2)}</li>`;
+            } else {
+              // If inside code block, treat as normal text
+              result = `${line}\n`;
+            }
+          } else if (line.match(/^\d+\. /)) {
+            if (!isInsideCodeBlock) {
+              // Handle ordered lists
+              result = `<li class="text-lg leading-relaxed mb-2 list-decimal list-inside">${line.replace(/^\d+\. /, '')}</li>`;
+            } else {
+              // If inside code block, treat as normal text
+              result = `${line}\n`;
+            }
+          } else if (line.startsWith('**') && line.endsWith('**')) {
+            if (!isInsideCodeBlock) {
+              result = `<p class="mb-6 leading-relaxed text-lg"><strong class="font-bold text-gray-900 dark:text-gray-100">${line.slice(2, -2)}</strong></p>`;
+            } else {
+              result = `${line}\n`;
+            }
+          } else if (line.includes('`') && !line.startsWith('```')) {
+            if (!isInsideCodeBlock) {
+              // Handle inline code
+              const processedLine = line.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 text-red-600 dark:text-red-400 px-2 py-1 rounded text-sm font-mono">$1</code>');
+              result = `<p class="mb-6 leading-relaxed text-lg">${processedLine}</p>`;
+            } else {
+              result = `${line}\n`;
+            }
+          } else {
+            // Check if we're inside a code block
+            const isInsideCodeBlock = acc.includes('<pre class="bg-gray-900') && (acc.lastIndexOf('<pre class="bg-gray-900') > acc.lastIndexOf('</code></pre>'));
+            
+            if (isInsideCodeBlock) {
+              result = line + '\n';
+            } else {
+              result = `<p class="mb-6 leading-relaxed text-lg">${line}</p>`;
+            }
+          }
+          
+          return acc + result;
+        }, '')} />
+      </div>
+
+      <!-- Tags -->
+      <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex flex-wrap gap-2">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Tags:</span>
+          {post.tags.map((tag: string) => (
+            <span class="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex justify-between items-center">
+          <Button href="/blog" variant="outline">
+            ← Back to Blog
+          </Button>
+          <div class="flex space-x-4">
+            <button 
+              onclick="navigator.share ? navigator.share({title: document.title, url: window.location.href}) : navigator.clipboard.writeText(window.location.href)"
+              class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              Share
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- Related Posts -->
+  <section class="py-20 bg-gray-50 dark:bg-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-12 text-center">
+        Related Articles
+      </h2>
+      
+      <div class="grid md:grid-cols-3 gap-8">
+        {relatedPosts.map((relatedPost) => (
+          <article class="bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+            <div class={`h-48 bg-gradient-to-br ${relatedPost.gradient}`}></div>
+            <div class="p-6">
+              <div class="flex items-center space-x-2 mb-3">
+                <span class={`px-2 py-1 rounded text-xs font-medium ${
+                  relatedPost.category === 'Tutorial' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' :
+                  relatedPost.category === 'Development' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                  relatedPost.category === 'Career' ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200' :
+                  relatedPost.category === 'Tools' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                  relatedPost.category === 'Opinion' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' :
+                  'bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-200'
+                }`}>
+                  {relatedPost.category}
+                </span>
+                <span class="text-gray-500 dark:text-gray-400 text-sm">{relatedPost.date}</span>
+              </div>
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                {relatedPost.title}
+              </h3>
+              <p class="text-gray-600 dark:text-gray-300 mb-4 line-clamp-3">
+                {relatedPost.excerpt}
+              </p>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500 dark:text-gray-400">{relatedPost.readTime}</span>
+                <Button href={`/blog/${relatedPost.id}`} variant="outline" size="sm">
+                  Read
+                </Button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</Layout>
+
+
